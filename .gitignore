@@ -1,0 +1,67 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments and packaging
+.venv/
+venv/
+env/
+ENV/
+.conda/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# IDE/editor settings
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test/coverage and caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.coverage*
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+site/
+sphinx/_build/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Data files (large/binary or generated)
+data_raw/
+data_preprocessed/
+*.csv
+*.tsv
+*.csv.gz
+*.jsonl
+*.parquet
+*.feather
+*.arrow
+*.orc
+*.xlsx
+*.xls
+
+# Secrets and environment files
+.env
+*.env
+*.env.*
+
+# Temporary/backup files
+*.tmp
+*.bak
+*.swp
+
