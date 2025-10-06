@@ -1,0 +1,2 @@
+ema_period,use_outlier_filter,total_return,max_drawdown,sharpe_ratio,total_trades,win_rate,objective_value
+5,False,0.34305578627703953,0.16980636865825482,0.5846503450874477,34785,0.5579416415121461,0.17324941761883605
