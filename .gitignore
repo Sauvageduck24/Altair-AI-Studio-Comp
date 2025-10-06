@@ -42,9 +42,6 @@ sphinx/_build/
 .ipynb_checkpoints/
 
 # Data files (large/binary or generated)
-data_raw/
-data_preprocessed/
-*.csv
 *.tsv
 *.csv.gz
 *.jsonl

@@ -57,7 +57,7 @@ def load_data():
             raw[c] = pd.to_numeric(raw[c], errors='coerce')
 
         # Cargar datos preprocesados
-        prep = pd.read_csv('data_preprocessed/prueba_results_comp.csv', sep=';')
+        prep = pd.read_csv('data_preprocessed/results.csv', sep=';')
         
         # Si tiene columna time, convertirla
         if 'time' in prep.columns:
