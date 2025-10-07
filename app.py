@@ -1170,6 +1170,16 @@ def show_backtest_comparison(backtest_results):
         
         elif not BACKTESTING_AVAILABLE:
             st.info("Detailed trading charts require backtesting modules.")
+    
+    # Trading execution warning
+    st.markdown("---")
+    st.markdown("""
+    <div style="font-size: 0.8em; color: #666; font-style: italic; text-align: center; padding: 1rem; 
+                background-color: #f8f9fa; border-radius: 0.3rem; border-left: 3px solid #ffc107;">
+        ⚠️ <strong>Important Notice:</strong> In this strategy, trades are executed sequentially as a safety measure, avoiding multiple simultaneous positions.
+        Allowing concurrent trades would reduce the system's accuracy and reliability.
+    </div>
+    """, unsafe_allow_html=True)
 
 def show_cluster_strategy_results(cluster_results):
     """Show cluster optimization results comparing with single strategy"""
@@ -1503,6 +1513,16 @@ def show_cluster_strategy_results(cluster_results):
         
         elif not BACKTESTING_AVAILABLE:
             st.info("Detailed trading charts require backtesting modules.")
+    
+    # Trading execution warning
+    st.markdown("---")
+    st.markdown("""
+    <div style="font-size: 0.8em; color: #666; font-style: italic; text-align: center; padding: 1rem; 
+                background-color: #f8f9fa; border-radius: 0.3rem; border-left: 3px solid #ffc107;">
+        ⚠️ <strong>Important Notice:</strong> In this strategy, trades are executed sequentially as a safety measure, avoiding multiple simultaneous positions.
+        Allowing concurrent trades would reduce the system's accuracy and reliability.
+    </div>
+    """, unsafe_allow_html=True)
     
     # More sections can be added here as needed
 
