@@ -23,6 +23,17 @@ The platform enables traders and researchers to:
 * 📋 Backtest *multiple strategies* across different market conditions
 * 🔍 Analyze *risk-adjusted returns* and drawdown characteristics
 
+### 📱 Interactive Web Dashboard
+
+![Web Main Window](imgs/web_main_window.png)
+*Interactive Streamlit dashboard showing EUR/USD market analysis with cluster visualization and outlier detection*
+
+![Outlier vs No Outlier Analysis](imgs/outlier_vs_no_outlier.png)
+*Comparative analysis showing the impact of outlier detection on trading strategy performance*
+
+![Cluster Adapted vs No Cluster Analysis](imgs/cluster_adapted_vs_no_cluster.png)
+*Performance comparison between cluster-adapted strategies and traditional approaches*
+
 ---
 
 ## 🧩 System Architecture
