@@ -34,6 +34,20 @@ The platform enables traders and researchers to:
 ![Cluster Adapted vs No Cluster Analysis](imgs/cluster_adapted_vs_no_cluster.png)
 *Performance comparison between cluster-adapted strategies and traditional approaches*
 
+### 🤖 AI Studio Data Processing Pipeline
+
+![AI Studio Preprocessing](imgs/altair_ai_studio_preprocessing.png)
+*Data preprocessing stage: cleaning, normalization and feature preparation*
+
+![AI Studio Outliers Detection](imgs/altair_ai_studio_outliers.png)
+*Outlier detection using multiple algorithms: Isolation Forest, LOF, and PCA-based methods*
+
+![AI Studio Clustering](imgs/altair_ai_studio_clustering.png)
+*Market regime clustering using K-Means algorithm for behavioral pattern identification*
+
+![AI Studio Saving Results](imgs/altair_ai_studio_saving_results.png)
+*Final stage: saving processed results with cluster labels and outlier flags*
+
 ---
 
 ## 🧩 System Architecture
