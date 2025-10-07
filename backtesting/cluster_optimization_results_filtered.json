@@ -1,0 +1,208 @@
+{
+  "optimization_results": {
+    "cluster_0": {
+      "best_strategy": "Bollinger",
+      "best_params": {
+        "bb_period": 15,
+        "bb_std": 1.9667358898599243
+      },
+      "best_value": 0.16719194858087788,
+      "all_results": {
+        "EMA": {
+          "cluster": "cluster_0",
+          "strategy": "EMA",
+          "best_params": {
+            "ema_period": 5
+          },
+          "best_value": 0.09944211689155225,
+          "n_trials": 50
+        },
+        "RSI": {
+          "cluster": "cluster_0",
+          "strategy": "RSI",
+          "best_params": {
+            "rsi_period": 28,
+            "oversold": 33,
+            "overbought": 71
+          },
+          "best_value": 0.06438016298713539,
+          "n_trials": 50
+        },
+        "MACD": {
+          "cluster": "cluster_0",
+          "strategy": "MACD",
+          "best_params": {
+            "fast_period": 18,
+            "slow_period": 32,
+            "signal_period": 15
+          },
+          "best_value": -0.11693020250897218,
+          "n_trials": 50
+        },
+        "Bollinger": {
+          "cluster": "cluster_0",
+          "strategy": "Bollinger",
+          "best_params": {
+            "bb_period": 15,
+            "bb_std": 1.9667358898599243
+          },
+          "best_value": 0.16719194858087788,
+          "n_trials": 50
+        },
+        "Stochastic": {
+          "cluster": "cluster_0",
+          "strategy": "Stochastic",
+          "best_params": {
+            "k_period": 11,
+            "d_period": 6,
+            "oversold": 15,
+            "overbought": 75
+          },
+          "best_value": 0.07626387446681906,
+          "n_trials": 50
+        }
+      }
+    },
+    "cluster_1": {
+      "best_strategy": "RSI",
+      "best_params": {
+        "rsi_period": 13,
+        "oversold": 35,
+        "overbought": 70
+      },
+      "best_value": 0.17185300541215448,
+      "all_results": {
+        "EMA": {
+          "cluster": "cluster_1",
+          "strategy": "EMA",
+          "best_params": {
+            "ema_period": 63
+          },
+          "best_value": -0.01868040651004098,
+          "n_trials": 50
+        },
+        "RSI": {
+          "cluster": "cluster_1",
+          "strategy": "RSI",
+          "best_params": {
+            "rsi_period": 13,
+            "oversold": 35,
+            "overbought": 70
+          },
+          "best_value": 0.17185300541215448,
+          "n_trials": 50
+        },
+        "MACD": {
+          "cluster": "cluster_1",
+          "strategy": "MACD",
+          "best_params": {
+            "fast_period": 20,
+            "slow_period": 35,
+            "signal_period": 9
+          },
+          "best_value": -0.27738826625957796,
+          "n_trials": 50
+        },
+        "Bollinger": {
+          "cluster": "cluster_1",
+          "strategy": "Bollinger",
+          "best_params": {
+            "bb_period": 19,
+            "bb_std": 1.9726166080046559
+          },
+          "best_value": 0.1495636417411312,
+          "n_trials": 50
+        },
+        "Stochastic": {
+          "cluster": "cluster_1",
+          "strategy": "Stochastic",
+          "best_params": {
+            "k_period": 10,
+            "d_period": 6,
+            "oversold": 15,
+            "overbought": 79
+          },
+          "best_value": 0.15669645134666477,
+          "n_trials": 50
+        }
+      }
+    }
+  },
+  "weight_config": {
+    "cluster_0": {
+      "weights": {
+        "EMA": 0.0,
+        "RSI": 0.0,
+        "MACD": 0.0,
+        "Bollinger": 1.0,
+        "Stochastic": 0.0
+      },
+      "best_strategy": "Bollinger",
+      "best_params": {
+        "bb_period": 15,
+        "bb_std": 1.9667358898599243
+      }
+    },
+    "cluster_1": {
+      "weights": {
+        "EMA": 0.0,
+        "RSI": 1.0,
+        "MACD": 0.0,
+        "Bollinger": 0.0,
+        "Stochastic": 0.0
+      },
+      "best_strategy": "RSI",
+      "best_params": {
+        "rsi_period": 13,
+        "oversold": 35,
+        "overbought": 70
+      }
+    }
+  },
+  "combined_performance": {
+    "total_return": 0.5459782127494969,
+    "max_drawdown": 0.13419918107155282,
+    "sharpe_ratio": 0.8239858379611463,
+    "total_trades": 3565,
+    "win_rate": 0.6431977559607294,
+    "objective_value": 0.41177903167794405,
+    "total_entries": "3565",
+    "total_exits": "3608",
+    "weight_config": {
+      "cluster_0": {
+        "weights": {
+          "EMA": 0.0,
+          "RSI": 0.0,
+          "MACD": 0.0,
+          "Bollinger": 1.0,
+          "Stochastic": 0.0
+        },
+        "best_strategy": "Bollinger",
+        "best_params": {
+          "bb_period": 15,
+          "bb_std": 1.9667358898599243
+        }
+      },
+      "cluster_1": {
+        "weights": {
+          "EMA": 0.0,
+          "RSI": 1.0,
+          "MACD": 0.0,
+          "Bollinger": 0.0,
+          "Stochastic": 0.0
+        },
+        "best_strategy": "RSI",
+        "best_params": {
+          "rsi_period": 13,
+          "oversold": 35,
+          "overbought": 70
+        }
+      }
+    }
+  },
+  "configuration": {
+    "use_outlier_filter": true,
+    "n_trials": 50,
+    "sample_size": 247400
+  }
+}

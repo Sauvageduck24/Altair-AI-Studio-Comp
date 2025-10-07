@@ -4,15 +4,6 @@ from pathlib import Path
 from numba import njit
 
 def load_data(file_path: str) -> pd.DataFrame:
-    """
-    Carga los datos del dataset preprocesado.
-    
-    Args:
-        file_path: Ruta al archivo CSV
-        
-    Returns:
-        DataFrame con los datos cargados y datetime index
-    """
     df = pd.read_csv(file_path)
     df['time'] = pd.to_datetime(df['time'])
     df.set_index('time', inplace=True)
@@ -20,16 +11,6 @@ def load_data(file_path: str) -> pd.DataFrame:
 
 
 def shift_signals(signals: pd.Series, shift_periods: int = 1) -> pd.Series:
-    """
-    Desplaza las señales hacia adelante para simular ejecución en la siguiente vela.
-    
-    Args:
-        signals: Serie con las señales de trading
-        shift_periods: Número de periodos a desplazar (default: 1)
-        
-    Returns:
-        Serie con señales desplazadas
-    """
     shifted_signals = signals.shift(shift_periods)
     # Rellenar los primeros valores con 0 (sin señal)
     shifted_signals.fillna(0, inplace=True)

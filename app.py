@@ -19,6 +19,7 @@ try:
     sys.path.append(str(Path(__file__).parent / "backtesting"))
     from model import EMAModel
     from utils import load_data as load_backtest_data, shift_signals, force_close_open_positions_numba, filter_outlier_entries
+    from strategies import EMAStrategy, RSIStrategy, MACDStrategy, BollingerStrategy, StochasticStrategy
     BACKTESTING_AVAILABLE = True
 except ImportError as e:
     BACKTESTING_AVAILABLE = False
@@ -144,6 +145,24 @@ def load_backtest_results():
     except Exception as e:
         st.error(f"Error cargando resultados de backtesting: {str(e)}")
         return {'filtered': None, 'original': None}
+
+@st.cache_data
+def load_cluster_results():
+    """Carga los resultados de optimización por clusters"""
+    try:
+        import json
+        
+        # Cargar resultados con filtro de outliers
+        try:
+            with open('backtesting/cluster_optimization_results_filtered.json', 'r') as f:
+                cluster_results = json.load(f)
+            return cluster_results
+        except FileNotFoundError:
+            return None
+        
+    except Exception as e:
+        st.error(f"Error cargando resultados de clusters: {str(e)}")
+        return None
 
 def get_cluster_colors():
     """Define colores específicos para clusters"""
@@ -523,6 +542,373 @@ def create_vectorbt_charts(portfolio, title_suffix=""):
         st.error(f"Error creando gráficas de vectorbt: {str(e)}")
         return None, None
 
+def create_individual_cluster_charts(cluster_portfolios):
+    """
+    Crea gráficos individuales para cada cluster mostrando cuándo actúa cada estrategia
+    """
+    if not cluster_portfolios:
+        return None
+    
+    cluster_colors = {
+        '0': '#2ecc71',  # Verde
+        '1': '#3498db',  # Azul
+        '2': '#e74c3c',  # Rojo
+        '3': '#f39c12',  # Naranja
+        '4': '#9b59b6',  # Púrpura
+        '5': '#1abc9c'   # Turquesa
+    }
+    
+    charts_data = {}
+    
+    for cluster_id, cluster_info in cluster_portfolios.items():
+        try:
+            portfolio = cluster_info['portfolio']
+            strategy = cluster_info['strategy']
+            params = cluster_info['params']
+            data = cluster_info['data']
+            entries = cluster_info['entries']
+            exits = cluster_info['exits']
+            cluster_num = cluster_info['cluster_num']
+            
+            # Crear gráfico para este cluster
+            fig = go.Figure()
+            
+            # Agregar candlestick
+            fig.add_trace(go.Candlestick(
+                x=data.index,
+                open=data['open'],
+                high=data['high'],
+                low=data['low'],
+                close=data['close'],
+                name=f'Precio - Cluster {cluster_num}',
+                increasing_line_color=cluster_colors.get(cluster_num, '#2ecc71'),
+                decreasing_line_color=cluster_colors.get(cluster_num, '#2ecc71'),
+                opacity=0.7
+            ))
+            
+            # Agregar señales de entrada (compra) - solo si hay pocas señales para mejorar rendimiento
+            entry_points = data[entries]
+            if len(entry_points) > 0:
+                # Limitar número de señales mostradas para mejorar rendimiento
+                max_signals = 200
+                if len(entry_points) > max_signals:
+                    step = len(entry_points) // max_signals
+                    entry_points = entry_points.iloc[::step]
+                
+                fig.add_trace(go.Scatter(
+                    x=entry_points.index,
+                    y=entry_points['low'] * 0.999,
+                    mode='markers',
+                    marker=dict(
+                        symbol='triangle-up',
+                        size=8,  # Reducido de 12 a 8
+                        color='green',
+                        line=dict(width=1, color='darkgreen')  # Reducido de 2 a 1
+                    ),
+                    name=f'Compra ({strategy})',
+                    hovertemplate='<b>COMPRA</b><br>%{x}<br>%{y:.5f}<extra></extra>'
+                ))
+            
+            # Agregar señales de salida (venta)
+            exit_points = data[exits]
+            if len(exit_points) > 0:
+                # Limitar número de señales mostradas para mejorar rendimiento
+                if len(exit_points) > max_signals:
+                    step = len(exit_points) // max_signals
+                    exit_points = exit_points.iloc[::step]
+                
+                fig.add_trace(go.Scatter(
+                    x=exit_points.index,
+                    y=exit_points['high'] * 1.001,
+                    mode='markers',
+                    marker=dict(
+                        symbol='triangle-down',
+                        size=8,  # Reducido de 12 a 8
+                        color='red',
+                        line=dict(width=1, color='darkred')  # Reducido de 2 a 1
+                    ),
+                    name=f'Venta ({strategy})',
+                    hovertemplate='<b>VENTA</b><br>%{x}<br>%{y:.5f}<extra></extra>'
+                ))
+            
+            # Configurar layout
+            params_text = ", ".join([f"{k}: {v:.3f}" if isinstance(v, float) else f"{k}: {v}" 
+                                   for k, v in params.items()])
+            
+            fig.update_layout(
+                title=f'🎯 Cluster {cluster_num} - Estrategia {strategy}<br>' +
+                      f'<sub>Parámetros: {params_text}</sub>',
+                xaxis_title='Fecha',
+                yaxis_title='Precio',
+                height=450,
+                showlegend=True,
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                font=dict(family="Arial, sans-serif"),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
+            )
+            
+            fig.update_xaxes(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='lightgray'
+            )
+            
+            fig.update_yaxes(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='lightgray'
+            )
+            
+            # Calcular métricas para este cluster
+            total_return = portfolio.total_return()
+            max_drawdown = abs(portfolio.max_drawdown())
+            
+            try:
+                vbt.settings.array_wrapper['freq'] = '15min'
+                sharpe = portfolio.sharpe_ratio()
+            except:
+                sharpe = 0.0
+            
+            # Contar señales
+            num_entries = entries.sum()
+            num_exits = exits.sum()
+            
+            metrics = {
+                'total_return': total_return,
+                'max_drawdown': max_drawdown,
+                'sharpe_ratio': sharpe,
+                'num_entries': num_entries,
+                'num_exits': num_exits,
+                'num_candles': len(data)
+            }
+            
+            charts_data[cluster_id] = {
+                'figure': fig,
+                'metrics': metrics,
+                'strategy': strategy,
+                'params': params,
+                'cluster_num': cluster_num
+            }
+            
+        except Exception as e:
+            st.warning(f"Error creando gráfico para {cluster_id}: {str(e)}")
+            continue
+    
+    return charts_data
+
+def recreate_cluster_portfolio(cluster_results, df_data):
+    """
+    Recrea un portfolio combinado usando las estrategias optimizadas por cluster
+    """
+    if not BACKTESTING_AVAILABLE or cluster_results is None:
+        return None
+    
+    try:
+        # Procesar columnas de cluster igual que en load_data()
+        if 'cluster_clean' not in df_data.columns:
+            if 'cluster' in df_data.columns:
+                df_data['cluster_clean'] = df_data['cluster'].astype(str).str.replace('cluster_', '', regex=False)
+                df_data['cluster_clean'] = df_data['cluster_clean'].str.replace('Cluster ', '', regex=False)
+            else:
+                st.error("No se encontró columna 'cluster' en los datos")
+                return None
+        
+        # Obtener configuración de weight
+        weight_config = cluster_results.get('weight_config', {})
+        if not weight_config:
+            st.error("No se encontró configuración de pesos en los resultados")
+            return None
+        
+        # Crear diccionario de estrategias
+        strategy_classes = {
+            'EMA': EMAStrategy,
+            'RSI': RSIStrategy,
+            'MACD': MACDStrategy,
+            'Bollinger': BollingerStrategy,
+            'Stochastic': StochasticStrategy
+        }
+        
+        # Generar señales combinadas
+        all_entries = pd.Series(False, index=df_data.index)
+        all_exits = pd.Series(False, index=df_data.index)
+        
+        for cluster_id, config in weight_config.items():
+            # Filtrar datos por cluster
+            cluster_num = cluster_id.replace('cluster_', '')
+            cluster_mask = df_data['cluster_clean'] == cluster_num
+            cluster_data = df_data[cluster_mask].copy()
+            
+            if len(cluster_data) == 0:
+                continue
+            
+            # Obtener la mejor estrategia para este cluster
+            best_strategy = config.get('best_strategy')
+            best_params = config.get('best_params', {})
+            
+            if best_strategy in strategy_classes:
+                # Crear instancia de la estrategia con parámetros optimizados
+                strategy = strategy_classes[best_strategy]()
+                strategy.set_params(**best_params)
+                
+                # Generar señales para este cluster
+                cluster_signals = strategy.generate_signals(cluster_data)
+                
+                # Mapear señales al DataFrame completo
+                if 'signal' in cluster_signals.columns:
+                    # Aplicar señales solo donde corresponde el cluster
+                    cluster_entries = (cluster_signals['signal'] == 1)
+                    cluster_exits = (cluster_signals['signal'] == -1)
+                    
+                    # Mapear al índice completo
+                    all_entries.loc[cluster_data.index] |= cluster_entries
+                    all_exits.loc[cluster_data.index] |= cluster_exits
+        
+        # Desplazar señales para simular ejecución en siguiente vela
+        shifted_entries = shift_signals(all_entries.astype(int))
+        shifted_exits = shift_signals(all_exits.astype(int))
+        
+        entries = shifted_entries == 1
+        exits = shifted_exits == 1
+        
+        # Forzar cierre de posiciones abiertas para evitar solapamientos
+        entries_array, exits_array = force_close_open_positions_numba(entries.values, exits.values)
+        
+        # Convertir de vuelta a pandas Series
+        entries = pd.Series(entries_array, index=df_data.index)
+        exits = pd.Series(exits_array, index=df_data.index)
+        
+        # Aplicar filtro de outliers si está configurado
+        config_info = cluster_results.get('configuration', {})
+        if config_info.get('use_outlier_filter', False):
+            entries = filter_outlier_entries(entries, df_data['outlier_flag'])
+        
+        # Crear portfolio con vectorbt
+        portfolio = vbt.Portfolio.from_signals(
+            df_data['close'],
+            entries=entries,
+            exits=exits,
+            init_cash=1_000_000
+        )
+        
+        return portfolio
+        
+    except Exception as e:
+        st.error(f"Error recreando portfolio de clusters: {str(e)}")
+        return None
+
+def create_individual_cluster_portfolios(cluster_results, df_data):
+    """
+    Crea portfolios individuales para cada cluster con sus estrategias específicas
+    """
+    if not BACKTESTING_AVAILABLE or cluster_results is None:
+        return {}
+    
+    try:
+        # Procesar columnas de cluster igual que en recreate_cluster_portfolio
+        if 'cluster_clean' not in df_data.columns:
+            if 'cluster' in df_data.columns:
+                df_data['cluster_clean'] = df_data['cluster'].astype(str).str.replace('cluster_', '', regex=False)
+                df_data['cluster_clean'] = df_data['cluster_clean'].str.replace('Cluster ', '', regex=False)
+            else:
+                return {}
+        
+        # Obtener configuración de weight
+        weight_config = cluster_results.get('weight_config', {})
+        if not weight_config:
+            return {}
+        
+        # Crear diccionario de estrategias
+        strategy_classes = {
+            'EMA': EMAStrategy,
+            'RSI': RSIStrategy,
+            'MACD': MACDStrategy,
+            'Bollinger': BollingerStrategy,
+            'Stochastic': StochasticStrategy
+        }
+        
+        cluster_portfolios = {}
+        
+        for cluster_id, config in weight_config.items():
+            try:
+                # Filtrar datos por cluster
+                cluster_num = cluster_id.replace('cluster_', '')
+                cluster_mask = df_data['cluster_clean'] == cluster_num
+                cluster_data = df_data[cluster_mask].copy()
+                
+                if len(cluster_data) == 0:
+                    continue
+                
+                # Obtener la mejor estrategia para este cluster
+                best_strategy = config.get('best_strategy')
+                best_params = config.get('best_params', {})
+                
+                if best_strategy in strategy_classes:
+                    # Crear instancia de la estrategia con parámetros optimizados
+                    strategy = strategy_classes[best_strategy]()
+                    strategy.set_params(**best_params)
+                    
+                    # Generar señales para este cluster
+                    cluster_signals = strategy.generate_signals(cluster_data)
+                    
+                    if 'signal' in cluster_signals.columns:
+                        # Convertir señales a entradas/salidas
+                        entries = (cluster_signals['signal'] == 1)
+                        exits = (cluster_signals['signal'] == -1)
+                        
+                        # Desplazar señales para simular ejecución en siguiente vela
+                        shifted_entries = shift_signals(entries.astype(int))
+                        shifted_exits = shift_signals(exits.astype(int))
+                        
+                        entries = shifted_entries == 1
+                        exits = shifted_exits == 1
+                        
+                        # Forzar cierre de posiciones abiertas
+                        entries_array, exits_array = force_close_open_positions_numba(entries.values, exits.values)
+                        
+                        # Convertir de vuelta a pandas Series
+                        entries = pd.Series(entries_array, index=cluster_data.index)
+                        exits = pd.Series(exits_array, index=cluster_data.index)
+                        
+                        # Aplicar filtro de outliers si está configurado
+                        config_info = cluster_results.get('configuration', {})
+                        if config_info.get('use_outlier_filter', False):
+                            entries = filter_outlier_entries(entries, cluster_data['outlier_flag'])
+                        
+                        # Crear portfolio individual
+                        portfolio = vbt.Portfolio.from_signals(
+                            cluster_data['close'],
+                            entries=entries,
+                            exits=exits,
+                            init_cash=1_000_000
+                        )
+                        
+                        cluster_portfolios[cluster_id] = {
+                            'portfolio': portfolio,
+                            'strategy': best_strategy,
+                            'params': best_params,
+                            'data': cluster_data,
+                            'entries': entries,
+                            'exits': exits,
+                            'cluster_num': cluster_num
+                        }
+                        
+            except Exception as e:
+                st.warning(f"Error procesando cluster {cluster_id}: {str(e)}")
+                continue
+        
+        return cluster_portfolios
+        
+    except Exception as e:
+        st.error(f"Error creando portfolios individuales: {str(e)}")
+        return {}
+
 def show_statistics(df, selected_clusters, show_outliers_only):
     """Muestra estadísticas de los datos"""
     
@@ -823,6 +1209,343 @@ def show_backtest_comparison(backtest_results):
         elif not BACKTESTING_AVAILABLE:
             st.info("Las gráficas detalladas de trading requieren los módulos de backtesting.")
 
+def show_cluster_strategy_results(cluster_results):
+    """Muestra los resultados de optimización por clusters comparando con estrategia única"""
+    
+    st.markdown("## 🎯 Comparación de Modelos de Trading")
+    st.markdown("### Estrategia única (EMA) vs Estrategias adaptadas a clusters")
+    
+    if not cluster_results:
+        st.warning("No se encontraron resultados de optimización por clusters. Ejecuta el script cluster_train.py primero.")
+        return
+    
+    # Cargar también los resultados de backtesting para comparar
+    backtest_results = load_backtest_results()
+    
+    # Obtener métricas del modelo combinado por clusters
+    combined_perf = cluster_results.get('combined_performance', {})
+    
+    # Obtener métricas del modelo EMA con filtro (mejor de los dos anteriores)
+    ema_results = backtest_results.get('filtered') or backtest_results.get('original')
+    
+    if not combined_perf and not ema_results:
+        st.warning("No se encontraron suficientes datos para la comparación.")
+        return
+    
+    # Crear columnas para comparación lado a lado
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        st.markdown("### 📊 Estrategia Única (EMA)")
+        if ema_results:
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #3498db, #2980b9); 
+                       color: white; padding: 1.5rem; border-radius: 1rem; margin: 1rem 0;">
+                <h4 style="margin: 0 0 1rem 0; color: white;">📊 Métricas Principales</h4>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>EMA Period:</strong> {ema_results['ema_period']}</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Rendimiento Total:</strong> {ema_results['total_return']*100:.2f}%</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Max Drawdown:</strong> {ema_results['max_drawdown']*100:.2f}%</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Sharpe Ratio:</strong> {ema_results['sharpe_ratio']:.3f}</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Total Trades:</strong> {ema_results['total_trades']:,}</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Win Rate:</strong> {ema_results['win_rate']*100:.1f}%</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Valor Objetivo:</strong> {ema_results['objective_value']:.4f}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.error("Resultados de estrategia única no disponibles")
+    
+    with col2:
+        st.markdown("### 🧠 Estrategias Adaptadas a Clusters")
+        if combined_perf:
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #2ecc71, #27ae60); 
+                       color: white; padding: 1.5rem; border-radius: 1rem; margin: 1rem 0;">
+                <h4 style="margin: 0 0 1rem 0; color: white;">📊 Métricas Principales</h4>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Múltiples Estrategias</strong></p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Rendimiento Total:</strong> {combined_perf.get('total_return', 0)*100:.2f}%</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Max Drawdown:</strong> {combined_perf.get('max_drawdown', 0)*100:.2f}%</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Sharpe Ratio:</strong> {combined_perf.get('sharpe_ratio', 0):.3f}</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Total Trades:</strong> {combined_perf.get('total_trades', 0):,}</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Win Rate:</strong> {combined_perf.get('win_rate', 0)*100:.1f}%</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Valor Objetivo:</strong> {combined_perf.get('objective_value', 0):.4f}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.error("Resultados de estrategias adaptadas no disponibles")
+    
+    with col3:
+        st.markdown("### 📈 Análisis Comparativo")
+        if combined_perf and ema_results:
+            # Calcular diferencias
+            return_diff = (combined_perf.get('total_return', 0) - ema_results['total_return']) * 100
+            drawdown_diff = (combined_perf.get('max_drawdown', 0) - ema_results['max_drawdown']) * 100
+            sharpe_diff = combined_perf.get('sharpe_ratio', 0) - ema_results['sharpe_ratio']
+            trades_diff = combined_perf.get('total_trades', 0) - ema_results['total_trades']
+            winrate_diff = (combined_perf.get('win_rate', 0) - ema_results['win_rate']) * 100
+            objective_diff = combined_perf.get('objective_value', 0) - ema_results['objective_value']
+            
+            # Determinar colores para las diferencias
+            return_color = "green" if return_diff > 0 else "red"
+            drawdown_color = "green" if drawdown_diff < 0 else "red"  # Menor drawdown es mejor
+            sharpe_color = "green" if sharpe_diff > 0 else "red"
+            objective_color = "green" if objective_diff > 0 else "red"
+            
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #f39c12, #e67e22); 
+                       color: white; padding: 1.5rem; border-radius: 1rem; margin: 1rem 0;">
+                <h4 style="margin: 0 0 1rem 0; color: white;">🔍 Diferencias (Clusters vs EMA)</h4>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Rendimiento:</strong> <span style="color: {return_color};">{return_diff:+.2f}%</span></p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Max Drawdown:</strong> <span style="color: {drawdown_color};">{drawdown_diff:+.2f}%</span></p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Sharpe Ratio:</strong> <span style="color: {sharpe_color};">{sharpe_diff:+.3f}</span></p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Total Trades:</strong> {trades_diff:+,}</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Win Rate:</strong> {winrate_diff:+.1f}%</p>
+                <p style="margin: 0.5rem 0; font-size: 1.1em;"><strong>Valor Objetivo:</strong> <span style="color: {objective_color};">{objective_diff:+.4f}</span></p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Conclusión
+            st.markdown("### 🎯 Conclusión")
+            if objective_diff > 0:
+                st.success(f"✅ **Las estrategias adaptadas son {objective_diff:.2%} mejores** según la métrica objetivo")
+            else:
+                st.warning(f"⚠️ **La estrategia única EMA es {abs(objective_diff):.2%} mejor** según la métrica objetivo")
+        else:
+            st.info("Necesitas ambos resultados para comparar")
+    
+    # Gráfico comparativo de barras
+    if combined_perf and ema_results:
+        st.markdown("### 📊 Visualización Comparativa")
+        
+        metrics = ['Rendimiento Total (%)', 'Max Drawdown (%)', 'Sharpe Ratio', 'Win Rate (%)']
+        ema_values = [
+            ema_results['total_return'] * 100,
+            ema_results['max_drawdown'] * 100,
+            ema_results['sharpe_ratio'],
+            ema_results['win_rate'] * 100
+        ]
+        cluster_values = [
+            combined_perf.get('total_return', 0) * 100,
+            combined_perf.get('max_drawdown', 0) * 100,
+            combined_perf.get('sharpe_ratio', 0),
+            combined_perf.get('win_rate', 0) * 100
+        ]
+        
+        fig_comparison = go.Figure()
+        
+        fig_comparison.add_trace(go.Bar(
+            name='Estrategia Única (EMA)',
+            x=metrics,
+            y=ema_values,
+            marker_color='#3498db',
+            text=[f'{v:.2f}' for v in ema_values],
+            textposition='auto'
+        ))
+        
+        fig_comparison.add_trace(go.Bar(
+            name='Estrategias Adaptadas a Clusters',
+            x=metrics,
+            y=cluster_values,
+            marker_color='#2ecc71',
+            text=[f'{v:.2f}' for v in cluster_values],
+            textposition='auto'
+        ))
+        
+        fig_comparison.update_layout(
+            title='📊 Comparación de Métricas de Trading',
+            xaxis_title='Métricas',
+            yaxis_title='Valores',
+            barmode='group',
+            height=500,
+            plot_bgcolor='white',
+            paper_bgcolor='white'
+        )
+        
+        st.plotly_chart(fig_comparison, use_container_width=True)
+        
+        # Análisis de Estrategias durante el Entrenamiento
+        st.markdown("### 🔬 Análisis de Estrategias durante el Entrenamiento")
+        st.markdown("#### Comparación del rendimiento de todas las estrategias probadas por cluster")
+        
+        # Obtener resultados de optimización por clusters
+        optimization_results = cluster_results.get('optimization_results', {})
+        
+        if optimization_results:
+            # Crear gráfico de rendimiento de estrategias por cluster
+            fig_training = go.Figure()
+            
+            strategies = ['EMA', 'RSI', 'MACD', 'Bollinger', 'Stochastic']
+            colors_strategies = {
+                'EMA': '#FF6B35',
+                'RSI': '#004E89', 
+                'MACD': '#1A936F',
+                'Bollinger': '#FF8C42',
+                'Stochastic': '#7209B7'
+            }
+            
+            # Agregar barras por estrategia
+            for strategy in strategies:
+                cluster_values = []
+                cluster_names = []
+                
+                for cluster_id, cluster_data in optimization_results.items():
+                    cluster_num = cluster_id.replace('cluster_', '')
+                    all_results = cluster_data.get('all_results', {})
+                    
+                    if strategy in all_results:
+                        value = all_results[strategy].get('best_value', 0)
+                        cluster_values.append(value)
+                        cluster_names.append(f'Cluster {cluster_num}')
+                    else:
+                        cluster_values.append(0)
+                        cluster_names.append(f'Cluster {cluster_num}')
+                
+                fig_training.add_trace(go.Bar(
+                    name=strategy,
+                    x=cluster_names,
+                    y=cluster_values,
+                    marker_color=colors_strategies.get(strategy, '#666666'),
+                    text=[f'{v:.3f}' if v > 0 else 'N/A' for v in cluster_values],
+                    textposition='auto',
+                    opacity=0.8,
+                    hovertemplate=f'<b>{strategy}</b><br>' +
+                                 'Cluster: %{x}<br>' +
+                                 'Valor Objetivo: %{y:.4f}<br>' +
+                                 '<extra></extra>'
+                ))
+            
+            fig_training.update_layout(
+                title='🔬 Rendimiento de Estrategias durante el Entrenamiento por Cluster',
+                xaxis_title='Clusters',
+                yaxis_title='Valor Objetivo (Rendimiento - Max Drawdown)',
+                barmode='group',
+                height=600,
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                font=dict(family="Arial, sans-serif"),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
+            
+            # Agregar línea horizontal en y=0 para referencia
+            fig_training.add_hline(
+                y=0,
+                line_dash="dash",
+                line_color="gray",
+                opacity=0.5,
+                annotation_text="Valor neutro (0)"
+            )
+            
+            st.plotly_chart(fig_training, use_container_width=True)
+            
+        # Análisis Detallado de Trading (como en backtesting)
+        if BACKTESTING_AVAILABLE:
+            st.markdown("### 📈 Análisis Detallado de Trading")
+            
+            try:
+                data_path = Path(__file__).parent / "data_preprocessed" / "enhanced_eurusd_dataset.csv"
+                if data_path.exists():
+                    trading_data = load_backtest_data(str(data_path))
+                    
+                    # Usar muestra para mejorar rendimiento
+                    sample_size = min(10000, len(trading_data))
+                    trading_data = trading_data.iloc[-sample_size:].copy()
+                    
+                    st.info(f"📊 Generando gráficas con {len(trading_data):,} registros (últimos datos)")
+                    
+                    # Recrear portfolios
+                    with st.spinner("Recreando portfolios para comparación..."):
+                        # Portfolio EMA
+                        portfolio_ema = recreate_portfolio_from_results(ema_results, trading_data)
+                        # Portfolio Clusters
+                        portfolio_clusters = recreate_cluster_portfolio(cluster_results, trading_data)
+                    
+                    # Crear gráficas lado a lado
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        if portfolio_ema is not None:
+                            orders_fig_ema, returns_fig_ema = create_vectorbt_charts(portfolio_ema, "- Estrategia Única EMA")
+                            if orders_fig_ema is not None:
+                                st.plotly_chart(orders_fig_ema, use_container_width=True)
+                            if returns_fig_ema is not None:
+                                st.plotly_chart(returns_fig_ema, use_container_width=True)
+                        else:
+                            st.warning("No se pudo generar el portfolio EMA")
+                    
+                    with col2:
+                        if portfolio_clusters is not None:
+                            orders_fig_clusters, returns_fig_clusters = create_vectorbt_charts(portfolio_clusters, "- Estrategias por Clusters")
+                            if orders_fig_clusters is not None:
+                                st.plotly_chart(orders_fig_clusters, use_container_width=True)
+                            if returns_fig_clusters is not None:
+                                st.plotly_chart(returns_fig_clusters, use_container_width=True)
+                        else:
+                            st.warning("No se pudo generar el portfolio de clusters")
+                    
+                    # Comparación de retornos cumulativos
+                    if portfolio_ema is not None and portfolio_clusters is not None:
+                        st.markdown("### 💰 Comparación de Retornos Cumulativos")
+                        
+                        fig_cumulative = go.Figure()
+                        
+                        # EMA Portfolio
+                        ema_value = portfolio_ema.value()
+                        fig_cumulative.add_trace(go.Scatter(
+                            x=portfolio_ema.wrapper.index,
+                            y=ema_value,
+                            mode='lines',
+                            name='Estrategia Única (EMA)',
+                            line=dict(width=3, color='#3498db')
+                        ))
+                        
+                        # Clusters Portfolio
+                        clusters_value = portfolio_clusters.value()
+                        fig_cumulative.add_trace(go.Scatter(
+                            x=portfolio_clusters.wrapper.index,
+                            y=clusters_value,
+                            mode='lines',
+                            name='Estrategias Adaptadas',
+                            line=dict(width=3, color='#2ecc71')
+                        ))
+                        
+                        # Línea base
+                        initial_cash = portfolio_ema.init_cash
+                        fig_cumulative.add_hline(
+                            y=initial_cash,
+                            line_dash="dash",
+                            line_color="gray",
+                            annotation_text=f"Capital Inicial: ${initial_cash:,.0f}"
+                        )
+                        
+                        fig_cumulative.update_layout(
+                            title='💰 Comparación de Retornos Cumulativos',
+                            xaxis_title='Fecha',
+                            yaxis_title='Valor del Portfolio ($)',
+                            yaxis=dict(tickformat='$,.0f'),
+                            height=500,
+                            showlegend=True,
+                            plot_bgcolor='white',
+                            paper_bgcolor='white'
+                        )
+                        
+                        st.plotly_chart(fig_cumulative, use_container_width=True)
+                
+                else:
+                    st.warning("No se encontró el archivo de datos preprocesados para generar las gráficas de trading")
+                    
+            except Exception as e:
+                st.error(f"Error generando gráficas de trading: {str(e)}")
+        
+        elif not BACKTESTING_AVAILABLE:
+            st.info("Las gráficas detalladas de trading requieren los módulos de backtesting.")
+    
+    # Aquí se pueden agregar más secciones según sea necesario
+
 def main():
     # Título principal
     st.title("🚀 EUR/USD Trading Analysis Dashboard")
@@ -832,12 +1555,13 @@ def main():
     with st.spinner("Cargando datos..."):
         df = load_data()
         backtest_results = load_backtest_results()
+        cluster_results = load_cluster_results()
     
     if df is None:
         st.stop()
     
     # Navegación por pestañas
-    tab1, tab2 = st.tabs(["📈 Análisis de Datos", "🎯 Resultados de Backtesting"])
+    tab1, tab2, tab3 = st.tabs(["📈 Análisis de Datos", "🎯 Resultados de Backtesting", "🧠 Estrategias por Clusters"])
     
     with tab1:
         # Sidebar para controles
@@ -961,6 +1685,10 @@ def main():
     with tab2:
         # Mostrar resultados de backtesting
         show_backtest_comparison(backtest_results)
+    
+    with tab3:
+        # Mostrar resultados de estrategias por clusters
+        show_cluster_strategy_results(cluster_results)
     
     # Footer
     st.markdown("---")
