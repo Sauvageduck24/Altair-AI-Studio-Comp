@@ -27,7 +27,7 @@ The platform enables traders and researchers to:
 
 ## 🎥 Project Demonstration
 
-[![EUR/USD Trading Analysis Platform Demo](https://img.youtube.com/vi/9bKkogQlWPw/0.jpg)](https://youtu.be/9bKkogQlWPw?si=KoUX4Skeam-5ZV57)
+[![EUR/USD Trading Analysis Platform Demo](https://www.youtube.com/watch?v=47kcPLY25Bk)
 
 **🎬 Watch our comprehensive demonstration** showcasing the complete trading analysis platform in action, featuring AI Studio workflows, interactive dashboard, and backtesting results.
 
