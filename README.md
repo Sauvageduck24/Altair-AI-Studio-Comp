@@ -23,6 +23,18 @@ The platform enables traders and researchers to:
 * 📋 Backtest *multiple strategies* across different market conditions
 * 🔍 Analyze *risk-adjusted returns* and drawdown characteristics
 
+---
+
+## 🎥 Project Demonstration
+
+[![EUR/USD Trading Analysis Platform Demo](https://img.youtube.com/vi/9bKkogQlWPw/0.jpg)](https://youtu.be/9bKkogQlWPw?si=KoUX4Skeam-5ZV57)
+
+**🎬 Watch our comprehensive demonstration** showcasing the complete trading analysis platform in action, featuring AI Studio workflows, interactive dashboard, and backtesting results.
+
+*Click the thumbnail above to watch the full demo video*
+
+---
+
 ### 📱 Interactive Web Dashboard
 
 ![Web Main Window](imgs/web_main_window.png)
